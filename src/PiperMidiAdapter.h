@@ -10,5 +10,6 @@ public:
 
 private:
   static PiperMidi::PiperMidiMessage buffer[MIDI_RCV_BUFFER_SIZE];
-  static int bufferHead;
+  static volatile int bufferHead;
+  static int bufferTail;
 };
