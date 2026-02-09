@@ -1,7 +1,7 @@
 #include "constants.h"
 #include <MIDI.h>
 
-class PiperMidiAdapter {
+template <uint8_t PortID> class PiperMidiAdapter {
 public:
   PiperMidiAdapter();
   static void loop();

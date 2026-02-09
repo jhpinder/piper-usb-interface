@@ -1,13 +1,13 @@
 #include "PiperMidiAdapter.h"
 #include "constants.h"
 
-PiperMidi::PiperMidiMessage PiperMidiAdapter::buffer[MIDI_RCV_BUFFER_SIZE];
-volatile int PiperMidiAdapter::bufferHead = 0;
-int PiperMidiAdapter::bufferTail = 0;
+template <uint8_t PortID> PiperMidi::PiperMidiMessage PiperMidiAdapter<PortID>::buffer[MIDI_RCV_BUFFER_SIZE];
+template <uint8_t PortID> volatile int PiperMidiAdapter<PortID>::bufferHead = 0;
+template <uint8_t PortID> int PiperMidiAdapter<PortID>::bufferTail = 0;
 
-PiperMidiAdapter::PiperMidiAdapter() {}
+template <uint8_t PortID> PiperMidiAdapter<PortID>::PiperMidiAdapter() {}
 
-void PiperMidiAdapter::loop() {
+template <uint8_t PortID> void PiperMidiAdapter<PortID>::loop() {
   if (Serial1.availableForWrite() < (PIPER_BATCH_SIZE * 2))
     return;
   if (bufferHead == bufferTail) {
@@ -32,7 +32,7 @@ void PiperMidiAdapter::loop() {
   Serial1.write(outputBatch, batchCount * 2); // use 2 until we have a packing struct
 }
 
-void PiperMidiAdapter::handleNoteOn(byte channel, byte note, byte velocity) {
+template <uint8_t PortID> void PiperMidiAdapter<PortID>::handleNoteOn(byte channel, byte note, byte velocity) {
   int nextBufferHead = (bufferHead + 1) & (MIDI_RCV_BUFFER_SIZE - 1);
   if (nextBufferHead == bufferTail) {
     // buffer overflow, turn neopixel yellow and skip the message
@@ -48,7 +48,7 @@ void PiperMidiAdapter::handleNoteOn(byte channel, byte note, byte velocity) {
   bufferHead = nextBufferHead;
 }
 
-void PiperMidiAdapter::handleNoteOff(byte channel, byte note, byte velocity) {
+template <uint8_t PortID> void PiperMidiAdapter<PortID>::handleNoteOff(byte channel, byte note, byte velocity) {
   int nextBufferHead = (bufferHead + 1) & (MIDI_RCV_BUFFER_SIZE - 1);
   if (nextBufferHead == bufferTail) {
     // buffer overflow, turn neopixel yellow and skip the message
@@ -63,3 +63,9 @@ void PiperMidiAdapter::handleNoteOff(byte channel, byte note, byte velocity) {
   };
   bufferHead = nextBufferHead;
 }
+
+// four ports for now, will let us control 16,384 output points
+template class PiperMidiAdapter<0>;
+template class PiperMidiAdapter<1>;
+template class PiperMidiAdapter<2>;
+template class PiperMidiAdapter<3>;
