@@ -9,7 +9,7 @@ public:
   static void handleNoteOff(byte channel, byte note, byte velocity);
 
 private:
-  static PiperMidi::PiperMidiMessage buffer[MIDI_RCV_BUFFER_SIZE];
+  static PiperMidi::PiperMidiMessage rcvBuffer[MIDI_RCV_BUFFER_SIZE];
   static volatile int bufferHead;
   static int bufferTail;
 };
