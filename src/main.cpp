@@ -9,40 +9,66 @@ midi::SerialMIDI<Adafruit_USBD_MIDI> serialMIDI1(usbMidi);
 midi::SerialMIDI<Adafruit_USBD_MIDI> serialMIDI2(usbMidi);
 midi::SerialMIDI<Adafruit_USBD_MIDI> serialMIDI3(usbMidi);
 
-midi::MidiInterface<midi::SerialMIDI<Adafruit_USBD_MIDI>> MIDI0(serialMIDI0);
-midi::MidiInterface<midi::SerialMIDI<Adafruit_USBD_MIDI>> MIDI1(serialMIDI1);
-midi::MidiInterface<midi::SerialMIDI<Adafruit_USBD_MIDI>> MIDI2(serialMIDI2);
-midi::MidiInterface<midi::SerialMIDI<Adafruit_USBD_MIDI>> MIDI3(serialMIDI3);
-
 void setup() {
   // MIDI_RCV_BUFFER_SIZE must be a power of 2
   static_assert((MIDI_RCV_BUFFER_SIZE & (MIDI_RCV_BUFFER_SIZE - 1)) == 0);
 
   piperUsbInterface.begin();
-  Serial1.setTX(RS485_TX_PIN);
-  Serial1.begin(RS485_BAUD_RATE);
   piperUsbInterface.reMount();
 
-  MIDI0.setHandleNoteOn(PiperMidiAdapter<0>::handleNoteOn);
-  MIDI0.setHandleNoteOff(PiperMidiAdapter<0>::handleNoteOff);
-  MIDI1.setHandleNoteOn(PiperMidiAdapter<1>::handleNoteOn);
-  MIDI1.setHandleNoteOff(PiperMidiAdapter<1>::handleNoteOff);
-  MIDI2.setHandleNoteOn(PiperMidiAdapter<2>::handleNoteOn);
-  MIDI2.setHandleNoteOff(PiperMidiAdapter<2>::handleNoteOff);
-  MIDI3.setHandleNoteOn(PiperMidiAdapter<3>::handleNoteOn);
-  MIDI3.setHandleNoteOff(PiperMidiAdapter<3>::handleNoteOff);
+  PiperMidiAdapter<RS485_TX_PIN0>::begin();
+  PiperMidiAdapter<RS485_TX_PIN1>::begin();
+  PiperMidiAdapter<RS485_TX_PIN2>::begin();
+  PiperMidiAdapter<RS485_TX_PIN3>::begin();
 }
 
 void loop() {
   piperUsbInterface.loop();
 
-  MIDI0.read();
-  MIDI1.read();
-  MIDI2.read();
-  MIDI3.read();
+  uint8_t packet[4];
+  while (usbMidi.readPacket(packet)) {
+    uint8_t cable = packet[0] >> 4;
+    uint8_t status = packet[1] & 0xF0;
+    uint8_t channel = packet[1] & 0x0F;
+    uint8_t note = packet[2];
+    uint8_t velocity = packet[3];
 
-  PiperMidiAdapter<0>::loop();
-  PiperMidiAdapter<1>::loop();
-  PiperMidiAdapter<2>::loop();
-  PiperMidiAdapter<3>::loop();
+    bool isNoteOn = (status == 0x90 && velocity > 0);
+    bool isNoteOff = (status == 0x80 || (status == 0x90 && velocity == 0));
+
+    if (!isNoteOn && !isNoteOff)
+      continue;
+
+    switch (cable) {
+    case 0:
+      if (isNoteOn)
+        PiperMidiAdapter<RS485_TX_PIN0>::handleNoteOn(channel, note, velocity);
+      else
+        PiperMidiAdapter<RS485_TX_PIN0>::handleNoteOff(channel, note, velocity);
+      break;
+    case 1:
+      if (isNoteOn)
+        PiperMidiAdapter<RS485_TX_PIN1>::handleNoteOn(channel, note, velocity);
+      else
+        PiperMidiAdapter<RS485_TX_PIN1>::handleNoteOff(channel, note, velocity);
+      break;
+    case 2:
+      if (isNoteOn)
+        PiperMidiAdapter<RS485_TX_PIN2>::handleNoteOn(channel, note, velocity);
+      else
+        PiperMidiAdapter<RS485_TX_PIN2>::handleNoteOff(channel, note, velocity);
+      break;
+    case 3:
+      if (isNoteOn)
+        PiperMidiAdapter<RS485_TX_PIN3>::handleNoteOn(channel, note, velocity);
+      else
+        PiperMidiAdapter<RS485_TX_PIN3>::handleNoteOff(channel, note, velocity);
+      break;
+    }
+  }
+
+  PiperMidiAdapter<RS485_TX_PIN0>::loop();
+  PiperMidiAdapter<RS485_TX_PIN1>::loop();
+  PiperMidiAdapter<RS485_TX_PIN2>::loop();
+  PiperMidiAdapter<RS485_TX_PIN3>::loop();
 }

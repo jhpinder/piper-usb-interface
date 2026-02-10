@@ -1,9 +1,10 @@
 #include "constants.h"
-#include <MIDI.h>
+#include <SerialPIO.h>
 
 template <uint8_t PortID> class PiperMidiAdapter {
 public:
   PiperMidiAdapter();
+  static void begin();
   static void loop();
   static void handleNoteOn(byte channel, byte note, byte velocity);
   static void handleNoteOff(byte channel, byte note, byte velocity);
@@ -13,4 +14,5 @@ private:
   static PiperMidi::PackedPiperMidiMessage outputBatchBuffer[PIPER_BATCH_SIZE];
   static volatile uint32_t bufferHead;
   static volatile uint32_t bufferTail;
+  static SerialPIO serialPort;
 };

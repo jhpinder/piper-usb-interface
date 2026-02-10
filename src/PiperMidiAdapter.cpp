@@ -5,13 +5,17 @@ template <uint8_t PortID> PiperMidi::PiperMidiMessage PiperMidiAdapter<PortID>::
 template <uint8_t PortID> volatile uint32_t PiperMidiAdapter<PortID>::bufferHead = 0;
 template <uint8_t PortID> volatile uint32_t PiperMidiAdapter<PortID>::bufferTail = 0;
 
-template <uint8_t PortID> PiperMidiAdapter<PortID>::PiperMidiAdapter() {}
+template <uint8_t PortID> PiperMidiAdapter<PortID>::PiperMidiAdapter() { serialPort.begin(RS485_BAUD_RATE); }
 
 template <uint8_t PortID>
 PiperMidi::PackedPiperMidiMessage PiperMidiAdapter<PortID>::outputBatchBuffer[PIPER_BATCH_SIZE];
 
+template <uint8_t PortID> SerialPIO PiperMidiAdapter<PortID>::serialPort(PortID, -1);
+
+template <uint8_t PortID> void PiperMidiAdapter<PortID>::begin() { serialPort.begin(RS485_BAUD_RATE); }
+
 template <uint8_t PortID> void PiperMidiAdapter<PortID>::loop() {
-  if (Serial1.availableForWrite() < (PIPER_BATCH_SIZE * sizeof(PiperMidi::PackedPiperMidiMessage)))
+  if (serialPort.availableForWrite() < (PIPER_BATCH_SIZE * sizeof(PiperMidi::PackedPiperMidiMessage)))
     return;
   if (bufferHead == bufferTail) {
     // buffer is empty, nothing to send
@@ -31,8 +35,8 @@ template <uint8_t PortID> void PiperMidiAdapter<PortID>::loop() {
   }
 
   bufferTail = batchBufferTail;
-  Serial1.write(reinterpret_cast<const uint8_t*>(outputBatchBuffer),
-                batchCount * sizeof(PiperMidi::PackedPiperMidiMessage));
+  serialPort.write(reinterpret_cast<const uint8_t*>(outputBatchBuffer),
+                   batchCount * sizeof(PiperMidi::PackedPiperMidiMessage));
 }
 
 template <uint8_t PortID> void PiperMidiAdapter<PortID>::handleNoteOn(byte channel, byte note, byte velocity) {
