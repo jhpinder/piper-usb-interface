@@ -17,10 +17,12 @@ midi::MidiInterface<midi::SerialMIDI<Adafruit_USBD_MIDI>> MIDI3(serialMIDI3);
 void setup() {
   // MIDI_RCV_BUFFER_SIZE must be a power of 2
   static_assert((MIDI_RCV_BUFFER_SIZE & (MIDI_RCV_BUFFER_SIZE - 1)) == 0);
+
   piperUsbInterface.begin();
   Serial1.setTX(RS485_TX_PIN);
   Serial1.begin(RS485_BAUD_RATE);
   piperUsbInterface.reMount();
+
   MIDI0.setHandleNoteOn(PiperMidiAdapter<0>::handleNoteOn);
   MIDI0.setHandleNoteOff(PiperMidiAdapter<0>::handleNoteOff);
   MIDI1.setHandleNoteOn(PiperMidiAdapter<1>::handleNoteOn);
@@ -33,10 +35,12 @@ void setup() {
 
 void loop() {
   piperUsbInterface.loop();
+
   MIDI0.read();
   MIDI1.read();
   MIDI2.read();
   MIDI3.read();
+
   PiperMidiAdapter<0>::loop();
   PiperMidiAdapter<1>::loop();
   PiperMidiAdapter<2>::loop();

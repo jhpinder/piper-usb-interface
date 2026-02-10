@@ -2,34 +2,37 @@
 #include "constants.h"
 
 template <uint8_t PortID> PiperMidi::PiperMidiMessage PiperMidiAdapter<PortID>::rcvBuffer[MIDI_RCV_BUFFER_SIZE];
-template <uint8_t PortID> volatile int PiperMidiAdapter<PortID>::bufferHead = 0;
-template <uint8_t PortID> int PiperMidiAdapter<PortID>::bufferTail = 0;
+template <uint8_t PortID> volatile uint32_t PiperMidiAdapter<PortID>::bufferHead = 0;
+template <uint8_t PortID> volatile uint32_t PiperMidiAdapter<PortID>::bufferTail = 0;
 
 template <uint8_t PortID> PiperMidiAdapter<PortID>::PiperMidiAdapter() {}
 
+template <uint8_t PortID>
+PiperMidi::PackedPiperMidiMessage PiperMidiAdapter<PortID>::outputBatchBuffer[PIPER_BATCH_SIZE];
+
 template <uint8_t PortID> void PiperMidiAdapter<PortID>::loop() {
-  if (Serial1.availableForWrite() < (PIPER_BATCH_SIZE * 2))
+  if (Serial1.availableForWrite() < (PIPER_BATCH_SIZE * sizeof(PiperMidi::PackedPiperMidiMessage)))
     return;
   if (bufferHead == bufferTail) {
     // buffer is empty, nothing to send
     return;
   }
 
-  int tempBufferHead = bufferHead;
-  int tempBufferTail = bufferTail;
+  // set batch buffer pointers and counters
+  uint32_t batchBufferHead = bufferHead;
+  uint32_t batchBufferTail = bufferTail;
 
-  uint8_t outputBatch[PIPER_BATCH_SIZE * 2]; // use 2 until we have a packing struct
   int batchCount = 0;
 
-  // Read from the buffer and send to serial port (rs485)
-  while (tempBufferHead != tempBufferTail && batchCount < PIPER_BATCH_SIZE) {
-    tempBufferTail = (tempBufferTail + 1) & (MIDI_RCV_BUFFER_SIZE - 1);
-    PiperMidi::PiperMidiMessage& message = rcvBuffer[tempBufferTail];
-    message.pack(outputBatch + batchCount * 2); // use 2 until we have a packing struct
-    batchCount++;
-    bufferTail = tempBufferTail;
+  // read from the buffer and pack
+  while (batchBufferHead != batchBufferTail && batchCount < PIPER_BATCH_SIZE) {
+    batchBufferTail = (batchBufferTail + 1) & (MIDI_RCV_BUFFER_SIZE - 1);
+    rcvBuffer[batchBufferTail].pack(&outputBatchBuffer[batchCount++]);
   }
-  Serial1.write(outputBatch, batchCount * 2); // use 2 until we have a packing struct
+
+  bufferTail = batchBufferTail;
+  Serial1.write(reinterpret_cast<const uint8_t*>(outputBatchBuffer),
+                batchCount * sizeof(PiperMidi::PackedPiperMidiMessage));
 }
 
 template <uint8_t PortID> void PiperMidiAdapter<PortID>::handleNoteOn(byte channel, byte note, byte velocity) {
@@ -39,12 +42,13 @@ template <uint8_t PortID> void PiperMidiAdapter<PortID>::handleNoteOn(byte chann
     return;
   }
 
-  // create a PiperMidiMessage and add it to the buffer
-  rcvBuffer[nextBufferHead] = PiperMidi::PiperMidiMessage{
-      .columnNumber = channel,
-      .status = PiperMidi::PiperMidiMessageType::NoteOn,
-      .number = note,
-  };
+  // reference the next PiperMidiMessage in the buffer and populate it with the incoming MIDI data
+  PiperMidi::PiperMidiMessage& message = rcvBuffer[nextBufferHead];
+  message.columnNumber = channel;
+  message.status = PiperMidi::PiperMidiMessageType::NoteOn;
+  message.number = note;
+
+  __dmb(); // ensure the message is fully written before updating the head pointer
   bufferHead = nextBufferHead;
 }
 
@@ -55,12 +59,13 @@ template <uint8_t PortID> void PiperMidiAdapter<PortID>::handleNoteOff(byte chan
     return;
   }
 
-  // create a PiperMidiMessage and add it to the buffer
-  rcvBuffer[nextBufferHead] = PiperMidi::PiperMidiMessage{
-      .columnNumber = channel,
-      .status = PiperMidi::PiperMidiMessageType::NoteOff,
-      .number = note,
-  };
+  // reference the next PiperMidiMessage in the buffer and populate it with the incoming MIDI data
+  PiperMidi::PiperMidiMessage& message = rcvBuffer[nextBufferHead];
+  message.columnNumber = channel;
+  message.status = PiperMidi::PiperMidiMessageType::NoteOff;
+  message.number = note;
+
+  __dmb(); // ensure the message is fully written before updating the head pointer
   bufferHead = nextBufferHead;
 }
 

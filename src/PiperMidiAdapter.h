@@ -10,6 +10,7 @@ public:
 
 private:
   static PiperMidi::PiperMidiMessage rcvBuffer[MIDI_RCV_BUFFER_SIZE];
-  static volatile int bufferHead;
-  static int bufferTail;
+  static PiperMidi::PackedPiperMidiMessage outputBatchBuffer[PIPER_BATCH_SIZE];
+  static volatile uint32_t bufferHead;
+  static volatile uint32_t bufferTail;
 };
